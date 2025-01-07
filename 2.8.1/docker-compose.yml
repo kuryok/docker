@@ -1,0 +1,76 @@
+version: '3'
+
+services:
+  ocsapplication:
+    image: ocsinventory/ocsinventory-docker-image:2.8.1
+    container_name: ocsinventory-server
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - "perlcomdata:/etc/ocsinventory-server"
+      - "ocsreportsdata:/usr/share/ocsinventory-reports/ocsreports"
+      - "varlibdata:/var/lib/ocsinventory-reports"
+      - "httpdconfdata:/etc/httpd/conf.d"
+      - ./conf:/tmp/conf  # Volume para arquivos de configuração modificados
+      - ./logs:/var/log/apache2  # Volume para logs do Apache
+      - ./data:/var/www/html  # Volume para os arquivos do OCS Web Console
+    environment:
+      OCS_DB_SERVER: ocsinventory-db
+      OCS_DB_USER: ocsuser
+      OCS_DB_PASS: ocspass
+      OCS_DB_NAME: ocsweb
+      OCS_DB_PORT: 3306
+      OCS_SSL_ENABLED: 0  # Definir conforme necessário
+      OCS_SSL_KEY: /etc/ssl/private/ssl-cert-snakeoil.key
+      OCS_SSL_CERT: /etc/ssl/certs/ssl-cert-snakeoil.pem
+      OCS_SSL_CA: /etc/ssl/certs/ca-certificates.crt
+    links:
+      - ocsdb
+    networks:
+      - localocs
+    depends_on:
+      - ocsdb
+
+  ocsdb:
+    image: mysql:5.7
+    container_name: ocsinventory-db
+    restart: always
+    ports:
+      - 3306:3306
+    volumes:
+      - ./sql/:/docker-entrypoint-initdb.d/
+      - sqldata:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_USER: ocsuser
+      MYSQL_PASSWORD: ocspass
+      MYSQL_DATABASE: ocsweb
+    networks:
+      - localocs
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: always
+    ports:
+      - 8080:80  # Expor o phpMyAdmin na porta 8080
+    environment:
+      PMA_HOST: ocsinventory-db  # Nome do serviço do banco de dados MySQL
+      PMA_USER: ocsuser  # Usuário do banco de dados
+      PMA_PASSWORD: ocspass  # Senha do banco de dados
+    networks:
+      - localocs
+    depends_on:
+      - ocsdb
+
+networks:
+  localocs:
+
+volumes:
+  perlcomdata:
+  ocsreportsdata:
+  varlibdata:
+  httpdconfdata:
+  sqldata:
